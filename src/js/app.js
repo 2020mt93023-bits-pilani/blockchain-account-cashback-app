@@ -26,13 +26,32 @@ App = {
       App.contracts.Account = TruffleContract(account);
       // Connect provider to interact with contract
       App.contracts.Account.setProvider(App.web3Provider);
-
+      //App.registerEvents();
       return App.render();
     });
   },
 
+  registerEvents: function(){
+    App.contracts.Account.deployed().then(function(instance){
+      instance.tranferedMoneyToWalletEvent({},{
+        fromBlock: 0,
+        toBlock: 'latest'
+      }).watch(function(error, event){
+        App.render();
+      });
+
+      /*instance.redeemedCashbackEvent({},{
+        fromBlock: 0,
+        toBlock: 'latest'
+      }).watch(function(error, event){
+        //App.render();
+      });*/
+
+    });
+  },
+
   render: function() {
-    var electionInstance;
+    var accountInstance;
     var loader = $("#loader");
     var content = $("#content");
 
@@ -42,29 +61,59 @@ App = {
     // Load account data
     web3.eth.getCoinbase(function(err, account) {
       if (err === null) {
-        App.account = account;
+        App.account = account
         $("#accountAddress").html("Your Account: " + account);
       }
     });
 
     // Load contract data
     App.contracts.Account.deployed().then(function(instance) {
-      accountInstance = instance;
+      accountInstance = instance;      
       return accountInstance.accountsCount();
     }).then(function(accountsCount) {
       var accountsResults = $("#accountsResults");
       accountsResults.empty();
 
-      for (var i = 1; i <= accountsCount; i++) {
-        accountInstance.digitalaccounts(i).then(function(digitalaccount) {
-          var id = digitalaccount[0];
-          var balance = digitalaccount[1];
-          var cashback_acct_id = digitalaccount[2];
-          var wallet_id = digitalaccount[3];
+      var accountsSelect = $('#accountsSelect');
+      accountsSelect.empty();
 
-          // Render candidate Result
-          var accountTemplate = "<tr><th>" + id + "</th><td>" + balance + "</td><td>" + cashback_acct_id + "</td></tr>" + wallet_id + "</td></tr>"
-          accountsResults.append(accountTemplate);
+      var cbaccountsSelect = $('#cbaccountsSelect');
+      cbaccountsSelect.empty();
+
+      console.log('accounts Count: '+ accountsCount);
+      for (var i = 1; i <= accountsCount; i++) {
+        var accountsTemplate = '';
+      
+        accountInstance.accountNames(i).then(function(accountName, i) {
+          return accountName;
+        }).then(function(accountName) {
+          accountInstance.digitalaccounts(accountName).then(function(digitalaccount) {
+            var id = digitalaccount[0];
+            var acct_balance = digitalaccount[1];
+            var cashback_acct_id = digitalaccount[2];
+            var wallet_id = digitalaccount[3];
+
+            // Render accounts option
+            var accountOption = "<option value='" + id + "' >" + id + "</ option>"
+            accountsSelect.append(accountOption);
+
+            accountInstance.cbaccounts(cashback_acct_id).then(function(cbaccount) {
+              var cb_acct_id = cbaccount[0];
+              var cb_balance = cbaccount[1];
+              // Render accounts option
+              var cbaccountsOption = "<option value='" + cb_acct_id + "' >" + cb_acct_id + "</ option>"
+              cbaccountsSelect.append(cbaccountsOption);
+
+              console.log('Cashback - ' + cashback_acct_id + ' Balance: ' + cb_balance);
+              accountInstance.digitalwallets(wallet_id).then(function(digitalwallet) {
+                var wallet_balance = digitalwallet[1];
+                console.log('Wallet - ' + wallet_id + ' Balance: ' + wallet_balance);
+                var accountTemplate = "<tr><th>" + id + "</th><td>" + acct_balance + "</td><td>" + cb_balance + "</td><td>" + wallet_balance + "</td></tr>";
+                console.log('Account Template: '+accountTemplate);
+                accountsResults.append(accountTemplate);
+              });
+            });          
+          });
         });
       }
 
@@ -73,7 +122,40 @@ App = {
     }).catch(function(error) {
       console.warn(error);
     });
+  },
+
+transferAmount: function() {
+    var accountInstance;
+    var accountId = $('#accountsSelect').val();
+    var transferAmount = $('#transferAmount').val();
+    console.log('Account ID:' + accountId);
+    console.log('Transfer Amount: '+transferAmount);
+    App.contracts.Account.deployed().then(function(instance) {
+      accountInstance = instance;
+      return accountInstance.transferMoneyToWallet(accountId, transferAmount, {from: App.account});
+    }).then(function(result) {
+      // Wait for votes to update
+      $("#content").hide();
+      $("#loader").show();
+    }).catch(function(err) {
+      console.error(err);
+    });
+  },
+
+redeem: function() {
+    var accountId = $('#cbaccountsSelect').val();
+    console.log('Cashback Account ID:' + accountId);
+    App.contracts.Account.deployed().then(function(instance) {
+      return instance.redeem(accountId, {from: App.account});
+    }).then(function(result) {
+      // Wait for votes to update
+      $("#content").hide();
+      $("#loader").show();
+    }).catch(function(err) {
+      console.error(err);
+    });
   }
+
 };
 
 $(function() {

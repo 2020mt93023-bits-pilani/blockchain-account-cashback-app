@@ -25,6 +25,16 @@ contract Account {
         uint balance;
     }
 
+    event tranferedMoneyToWalletEvent(
+        string indexed accountName,
+        uint indexed amount
+    );
+
+    event redeemedCashbackEvent(
+        string indexed cashback_acct_id
+    );
+    
+
     /*DigitalAccount public digital_account;
     Cashback_Account public  cb_account;
     DigitalWallet public digital_wallet;
@@ -33,6 +43,7 @@ contract Account {
     mapping(string => DigitalAccount) public digitalaccounts;
     mapping(string => Cashback_Account) public cbaccounts;
     mapping(string => DigitalWallet) public digitalwallets;
+    mapping(uint => string) public accountNames;
     uint public accountsCount;
 
     function createAccount(string memory accountName, string memory cbName, string memory walletName) private{        
@@ -43,6 +54,7 @@ contract Account {
         cbaccounts[cbName] = cb_account;
         digitalwallets[walletName] = digital_wallet;
         accountsCount++;
+        accountNames[accountsCount] = accountName;
     }
 
     function transferMoneyToWallet(string memory accountName, uint256 amount) public{
@@ -57,7 +69,9 @@ contract Account {
 
             digitalaccounts[accountName] = digital_account;
             cbaccounts[digital_account.cashback_acct_id] = cb_account;
-            digitalwallets[digital_account.digital_wallet_id] = digital_wallet;      
+            digitalwallets[digital_account.digital_wallet_id] = digital_wallet;
+
+            emit tranferedMoneyToWalletEvent(accountName, amount);
     }
 
     /*function transferMoney(uint256 amount) public returns (bool success){
@@ -80,6 +94,8 @@ contract Account {
 
         cbaccounts[cb_account_id] = cb_account;
         digitalaccounts[cb_account.digital_account_id] = digital_account;
+
+        emit redeemedCashbackEvent(cb_account_id);
 
     }
 
